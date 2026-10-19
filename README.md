@@ -20,7 +20,9 @@ your-config/
 See `example/` for a starting point.
 
 ## New box
-Amazon Linux 2023 or Ubuntu 24.04+ (needs polkit with JS rules), x86_64 or arm64, ports 80 and 443 open.
+Debian, Ubuntu or Amazon Linux 2023 (anything with systemd 247+ and dnf or apt), x86_64 or arm64, ports
+80 and 443 open. Running the www units without sudo needs polkit 0.106+ (Debian 12, Ubuntu 24.04, AL2023);
+on older systems install.sh skips that and those commands need sudo.
 ```sh
 sudo install -d -o "$USER" /www/box     # the one sudo besides install.sh
 git clone --recurse-submodules <your config repo> /www/box

@@ -24,10 +24,14 @@ case $(uname -m) in
 esac
 
 # --- packages and toolchains (shared by every site's build) ---
-if ! command -v git >/dev/null || ! command -v make >/dev/null || ! command -v g++ >/dev/null \
-	|| ! command -v pkcheck >/dev/null; then
-	if command -v dnf >/dev/null; then dnf install -y git gcc gcc-c++ make tar xz polkit
-	else apt-get update && apt-get install -y git build-essential curl xz-utils polkitd
+if ! command -v git >/dev/null || ! command -v make >/dev/null || ! command -v g++ >/dev/null; then
+	if command -v dnf >/dev/null; then dnf install -y git gcc gcc-c++ make tar xz
+	else apt-get update && apt-get install -y git build-essential curl xz-utils
+	fi
+fi
+if ! command -v pkcheck >/dev/null; then
+	if command -v dnf >/dev/null; then dnf install -y polkit
+	else (apt-get update && apt-get install -y polkitd) || true  # no polkitd before Debian 12 / Ubuntu 24.04
 	fi
 fi
 for t in node $TOOLCHAINS; do
@@ -48,7 +52,15 @@ grep -qxF "$gh_key" /etc/ssh/ssh_known_hosts 2>/dev/null || echo "$gh_key" >> /e
 # --- admins: members of group www read the journal and start/stop/restart the www units (polkit) ---
 getent group www >/dev/null || groupadd --system www
 for u in $ADMINS; do usermod -aG www,systemd-journal "$u"; done
-install -m 644 "$engine/polkit/gittybops.rules" /etc/polkit-1/rules.d/50-gittybops.rules
+# The rule needs polkit 0.106+ (JS rules). Older ones (Debian 11, Ubuntu 22.04) can't limit it to these units,
+# so there the www units stay sudo-only.
+pk=$(pkcheck --version 2>/dev/null | awk '{print $NF}')
+if [ -d /etc/polkit-1/rules.d ] && echo "${pk:-0.0}" | awk -F. '{exit !($1 > 0 || $2 >= 106)}'; then
+	install -m 644 "$engine/polkit/gittybops.rules" /etc/polkit-1/rules.d/50-gittybops.rules
+	pk_note=''
+else
+	pk_note="polkit ${pk:-not installed} has no JS rules: start/stop/restart www units with sudo"
+fi
 
 # --- the engine and the config, copied where only root can change them ---
 rm -rf /opt/gittybops.new && mkdir /opt/gittybops.new
@@ -119,3 +131,4 @@ if systemctl is-active -q caddy; then systemctl reload caddy; else systemctl sta
 
 echo "ok. webhook: $HOOK_URL, content type application/json, secret: cat /etc/www/hook-secret"
 [ -z "$ADMINS" ] || echo "admins ($ADMINS): log in again to pick up the www and systemd-journal groups"
+[ -z "$pk_note" ] || echo "$pk_note"
