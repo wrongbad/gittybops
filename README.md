@@ -97,3 +97,6 @@ Whoever can push to the config repo or this one can run code as root, but only o
   check. Roll back.
 - Removing a site from `sites.conf` stops its units but keeps `/www/sites/<name>` and its user.
 - Builds see the filesystem read-only except `/www/sites/<site>` and a private `/tmp`.
+
+## License
+Apache 2.0, see `LICENSE`.
