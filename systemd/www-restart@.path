@@ -1,8 +1,8 @@
-# A deploy or rollback touches /www/sites/<site>/restart once current points at the new build; `www restart
-# <site>` and install.sh (for new config) touch /www/trigger/restart-<site>.
+# Restart the server after a deploy or rollback (they touch /www/sites/<site>/restart), on `www restart
+# <site>`, or when setup changes its config (it touches the trigger).
 [Path]
 PathChanged=/www/sites/%i/restart
-PathModified=/www/trigger/restart-%i
+PathModified=/www/gittybops/trigger/restart-%i
 Unit=www-restart@%i.service
 
 [Install]

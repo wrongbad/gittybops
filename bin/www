@@ -1,48 +1,23 @@
 #!/bin/sh
-# Day-to-day commands for members of group www, no sudo. An action touches /www/trigger/<action>-<site>, which
-# a path unit turns into a run of www-<action>@<site>; this then shows that run's log until it ends.
-#   www deploy|backup|rollback|restart <site>
-#   www status
-#   www log <site>
+# Day-to-day commands, no sudo:
+#   www status                                   each site's deployed commit
+#   www deploy|backup|rollback|restart SITE      do it now, and follow the log (ctrl-c stops following)
+#   www log SITE                                 follow everything about SITE
 set -eu
-usage() { echo "usage: www deploy|backup|rollback|restart <site> | status | log <site>" >&2; exit 2; }
-cmd=${1:-} site=${2:-}
+cmd=${1:-}
+site=${2:-}
 case $cmd in
 	status)
-		systemctl list-units --all --no-pager 'www*'
-		sed 's/#.*//' /www/live/sites.conf | awk 'NF {print $1}' | while read -r s; do
-			echo "$s: $(cat "/www/sites/$s/deployed" 2>/dev/null || echo 'never built') in $(readlink "/www/sites/$s/current" 2>/dev/null || echo -)"
-		done
-		exit ;;
-	log) [ -n "$site" ] || usage; exec journalctl -f -u "www*@$site.*" ;;
-	deploy|backup|rollback|restart) [ -n "$site" ] || usage ;;
-	*) usage ;;
+		for f in /www/gittybops/site/*; do
+			echo "${f##*/}: $(cat "/www/sites/${f##*/}/deployed" 2>/dev/null || echo never built)"
+		done ;;
+	log)
+		exec journalctl -f -u "www*@$site.*" ;;
+	deploy|backup|rollback|restart)
+		[ -e "/www/gittybops/site/$site" ] || { echo "no site '$site'" >&2; exit 1; }
+		touch "/www/gittybops/trigger/$cmd-$site"
+		exec journalctl -f -n 0 -u "www-$cmd@$site" -u "www@$site" ;;
+	*)
+		echo "usage: www status | www deploy|backup|rollback|restart SITE | www log SITE" >&2
+		exit 2 ;;
 esac
-sed 's/#.*//' /www/live/sites.conf | awk -v n="$site" '$1 == n {f=1} END {exit !f}' \
-	|| { echo "no site $site in /www/live/sites.conf" >&2; exit 1; }
-[ -w /www/trigger ] || { echo "you're not in group www (yet: log in again after install.sh adds you)" >&2; exit 1; }
-
-unit=www-$cmd@$site.service
-prop() { systemctl show -p "$1" --value "$unit"; }
-run=$(prop InvocationID) checked=$(prop ConditionTimestampMonotonic)
-touch "/www/trigger/$cmd-$site"
-i=0
-while [ "$(prop InvocationID)" = "$run" ]; do
-	if [ "$(prop ConditionTimestampMonotonic)" != "$checked" ] && [ "$(prop ConditionResult)" = no ]; then
-		script=$cmd; [ "$cmd" != restart ] || script=start
-		echo "$unit skipped: the current build of $site has no deploy/$script" >&2
-		exit 1
-	fi
-	i=$((i + 1))
-	[ "$i" -le 50 ] || { echo "$unit did not start, see: systemctl status $unit" >&2; exit 1; }
-	sleep 0.2
-done
-journalctl -f -o cat "_SYSTEMD_INVOCATION_ID=$(prop InvocationID)" &
-log=$!
-while :; do
-	case $(prop ActiveState) in activating|active|deactivating|reloading) sleep 1 ;; *) break ;; esac
-done
-sleep 1 && kill "$log" 2>/dev/null || true
-[ "$cmd" != restart ] || systemctl status --no-pager -n 10 "www@$site.service" || true
-result=$(prop Result)
-[ "$result" = success ] || { echo "$unit: $result" >&2; exit 1; }

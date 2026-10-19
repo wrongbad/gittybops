@@ -1,7 +1,8 @@
-# A push (the webhook touches /run/www-hook/<site>), `www deploy <site>` or install.sh (/www/trigger/deploy-<site>).
+# Deploy on a push (the webhook listener touches /run/www-hook/<site>), `www deploy <site>`, or a new
+# sites.conf line (setup touches the trigger).
 [Path]
 PathModified=/run/www-hook/%i
-PathModified=/www/trigger/deploy-%i
+PathModified=/www/gittybops/trigger/deploy-%i
 Unit=www-deploy@%i.service
 
 [Install]

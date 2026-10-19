@@ -1,6 +1,6 @@
-# `www rollback <site>` touches /www/trigger/rollback-<site>.
+# On `www rollback <site>`.
 [Path]
-PathModified=/www/trigger/rollback-%i
+PathModified=/www/gittybops/trigger/rollback-%i
 Unit=www-rollback@%i.service
 
 [Install]

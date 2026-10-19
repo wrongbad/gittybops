@@ -4,7 +4,8 @@ Description=roll %i back to its previous build
 [Service]
 Type=oneshot
 User=www-%i
-ExecStart=/www/live/engine/bin/site-env %i /www/live/engine/bin/rollback
+Environment=PATH=@PATH@
+ExecStart=/www/gittybops/bin/site-env %i /www/gittybops/bin/rollback
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

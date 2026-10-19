@@ -1,0 +1,82 @@
+#!/bin/sh
+# Sets up push-to-deploy for the sites in SITES.CONF, or updates it after you change them:
+#   gittybops/setup SITES.CONF ENV-DIR [PATH]
+# PATH goes in front of the units' PATH. It must provide node (for the webhook listener) and whatever the sites'
+# builds need; git and ssh-keygen are expected too. Run as yourself: steps that need root are printed and run
+# through sudo, and only when something has to change.
+set -eu
+here=$(cd "$(dirname "$0")" && pwd)
+. "$here/lib.sh"
+sites=$(sed 's/#.*//' "$1" | awk NF)
+env_dir=$2
+path=${3:+$3:}/usr/local/bin:/usr/bin:/bin
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# All of a site's units, for enabling and disabling them together.
+units() {
+	echo "www@$1 www-deploy@$1.path www-deploy@$1.timer www-restart@$1.path" \
+		"www-backup@$1.path www-backup@$1.timer www-rollback@$1.path"
+}
+
+# Once: /www/gittybops (yours), /www/sites, the webhook secret, and you reading the logs.
+[ -d /www/gittybops ] || root install -d -o "$USER" /www/gittybops
+[ -d /www/sites ] || root install -d /www/sites
+if [ ! -e /etc/www/hook-secret ]; then
+	root install -d /etc/www
+	od -An -tx1 -N32 /dev/urandom | tr -d ' \n' | root install -m 600 /dev/stdin /etc/www/hook-secret
+fi
+id -nG | grep -qw systemd-journal || root usermod -aG systemd-journal "$USER"
+
+# The scripts the units run. The webhook listener restarts itself when its own file changes.
+mkdir -p /www/gittybops/bin /www/gittybops/hook /www/gittybops/site /www/gittybops/env /www/gittybops/trigger
+for f in bin/build bin/rollback bin/site-env bin/www hook/hook.mjs; do
+	put "$here/$f" "/www/gittybops/$f"
+done
+
+# The units, with PATH filled in, when they changed.
+for f in "$here"/systemd/*; do
+	unit=${f##*/}
+	sed "s#@PATH@#$path#" "$f" > "$tmp/$unit"
+	if ! cmp -s "$tmp/$unit" "/etc/systemd/system/$unit"; then
+		root install -m 644 "$tmp/$unit" /etc/systemd/system/
+		reload=yes
+	fi
+done
+if [ -n "${reload:-}" ]; then
+	root systemctl daemon-reload
+	root systemctl enable www-hook
+	root systemctl restart www-hook
+fi
+
+# Each site: a user and home (once), its units (once), and its config. Units read the config from
+# /www/gittybops/site/<name> and env/<name>.env when they start; a change there redeploys or restarts it.
+echo "$sites" | while read -r name repo branch port; do
+	[ -n "$name" ] || continue
+	user=www-$name
+	id "$user" >/dev/null 2>&1 || root useradd --system --user-group --no-create-home \
+		--home-dir "/www/sites/$name" --shell /usr/sbin/nologin "$user"
+	[ -d "/www/sites/$name" ] || root install -d -o "$user" -g "$user" "/www/sites/$name"
+
+	off=$(for u in $(units "$name"); do systemctl is-enabled -q "$u" || echo "$u"; done)
+	[ -z "$off" ] || root systemctl enable --now $off
+
+	echo "$repo $branch $port" > "$tmp/site"
+	if ! cmp -s "$tmp/site" "/www/gittybops/site/$name"; then
+		put "$tmp/site" "/www/gittybops/site/$name"
+		touch "/www/gittybops/trigger/deploy-$name" "/www/gittybops/trigger/restart-$name"
+	fi
+	if [ -f "$env_dir/$name.env" ] && ! cmp -s "$env_dir/$name.env" "/www/gittybops/env/$name.env"; then
+		put "$env_dir/$name.env" "/www/gittybops/env/$name.env"
+		touch "/www/gittybops/trigger/restart-$name"
+	fi
+done
+
+# Sites no longer in SITES.CONF: stop them, keep their files and user.
+for f in /www/gittybops/site/*; do
+	[ -e "$f" ] || continue
+	name=${f##*/}
+	echo "$sites" | awk -v n="$name" '$1 == n {found = 1} END {exit !found}' && continue
+	root systemctl disable --now $(units "$name")
+	rm "$f"
+done

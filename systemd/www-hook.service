@@ -7,7 +7,8 @@ DynamicUser=yes
 RuntimeDirectory=www-hook
 RuntimeDirectoryPreserve=yes
 LoadCredential=secret:/etc/www/hook-secret
-ExecStart=/www/tools/node/bin/node /www/live/engine/hook/hook.mjs
+Environment=PATH=@PATH@
+ExecStart=/usr/bin/env node /www/gittybops/hook/hook.mjs
 Restart=always
 
 [Install]

@@ -1,29 +1,23 @@
 #!/bin/sh
-# Runs CMD with a site's environment, in every unit that runs as the site's user: SITE, REPO, BRANCH, DATA_DIR
-# and PORT from sites.conf, then /www/live/env/<site>.env, then /www/sites/<site>/.env (secrets), later ones
-# winning. The files are read here, as the site's user, not by systemd as root, so a symlink in them can't
-# expose a file only root may read. Lines are KEY=value (one pair of surrounding quotes is stripped); # starts
-# a comment line.
-#   site-env <site> CMD [ARG...]
+# site-env SITE CMD...: run CMD with SITE's environment. Every unit that runs as a site's user starts this way.
+#   SITE, REPO, BRANCH, PORT, DATA_DIR    from SITE's line in sites.conf
+#   then the box's env/SITE.env, then the site's secrets in /www/sites/SITE/.env (KEY=value lines)
+# The files are read here, as the site's user, not by systemd as root, so a symlink in the site's directory
+# can't expose a file only root may read.
 set -eu
-site=$1 && shift
-line=$(sed 's/#.*//' /www/live/sites.conf | awk -v n="$site" '$1 == n')
-[ -n "$line" ] || { echo "no site $site in /www/live/sites.conf" >&2; exit 1; }
-read -r _ repo branch port <<EOF
-$line
-EOF
-export SITE="$site" REPO="$repo" BRANCH="$branch" DATA_DIR="/www/sites/$site/data"
-[ "$port" = - ] || export PORT="$port"
+SITE=$1
+shift
+read -r REPO BRANCH PORT < "/www/gittybops/site/$SITE"
+DATA_DIR=/www/sites/$SITE/data
+export SITE REPO BRANCH PORT DATA_DIR
+[ "$PORT" != - ] || unset PORT
+
 load() {
 	[ -f "$1" ] || return 0
-	while IFS= read -r kv || [ -n "$kv" ]; do
-		case $kv in ''|'#'*) continue ;; esac
-		k=${kv%%=*} v=${kv#*=}
-		case $k in ''|[0-9]*|*[!A-Za-z0-9_]*) echo "$1: skipping: $kv" >&2; continue ;; esac
-		case $v in \"*\") v=${v#\"} v=${v%\"} ;; \'*\') v=${v#\'} v=${v%\'} ;; esac
-		export "$k=$v"
+	while IFS= read -r line || [ -n "$line" ]; do
+		case $line in ''|'#'*) ;; *) export "$line" ;; esac
 	done < "$1"
 }
-load "/www/live/env/$site.env"
-load "/www/sites/$site/.env"
+load "/www/gittybops/env/$SITE.env"
+load "/www/sites/$SITE/.env"
 exec "$@"

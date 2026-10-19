@@ -6,8 +6,8 @@ ConditionFileIsExecutable=/www/sites/%i/current/deploy/backup
 Type=oneshot
 User=www-%i
 WorkingDirectory=/www/sites/%i/current
-Environment=PATH=/www/tools/node/bin:/www/tools/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin RUSTUP_HOME=/www/tools/rustup
-ExecStart=/www/live/engine/bin/site-env %i /www/sites/%i/current/deploy/backup
+Environment=PATH=@PATH@
+ExecStart=/www/gittybops/bin/site-env %i /www/sites/%i/current/deploy/backup
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

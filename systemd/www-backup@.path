@@ -1,6 +1,6 @@
-# `www backup <site>` touches /www/trigger/backup-<site>.
+# On `www backup <site>`.
 [Path]
-PathModified=/www/trigger/backup-%i
+PathModified=/www/gittybops/trigger/backup-%i
 Unit=www-backup@%i.service
 
 [Install]
