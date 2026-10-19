@@ -1,0 +1,14 @@
+[Unit]
+Description=GitHub push webhook listener
+After=network.target
+
+[Service]
+DynamicUser=yes
+RuntimeDirectory=www-hook
+RuntimeDirectoryPreserve=yes
+LoadCredential=secret:/etc/www/hook-secret
+ExecStart=/opt/node/bin/node /opt/gittybops/hook/hook.mjs
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

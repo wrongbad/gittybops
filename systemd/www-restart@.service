@@ -1,0 +1,8 @@
+# The one step of a deploy that runs as root. It takes no input but the fact that it was triggered.
+[Unit]
+Description=restart %i on its current build
+ConditionFileIsExecutable=/www/sites/%i/current/deploy/start
+
+[Service]
+Type=oneshot
+ExecStart=systemctl restart www@%i.service

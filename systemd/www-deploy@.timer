@@ -1,0 +1,7 @@
+# Safety net for missed webhooks; also does the first clone and build after boot.
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=10min
+
+[Install]
+WantedBy=timers.target

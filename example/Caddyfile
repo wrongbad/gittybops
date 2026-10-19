@@ -1,0 +1,21 @@
+{
+	email you@example.com
+	storage file_system /var/lib/caddy
+}
+
+example.com {
+	encode zstd gzip
+	import /opt/gittybops/caddy/hook.caddy
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8787
+	}
+	handle /docs/* {
+		root * /www/sites/docs/current/public
+		file_server
+	}
+	handle {
+		root * /www/box/www/example.com/public
+		file_server
+	}
+}

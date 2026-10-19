@@ -1,0 +1,24 @@
+[Unit]
+Description=%i site server
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+ConditionFileIsExecutable=/www/sites/%i/current/deploy/start
+
+[Service]
+User=www-%i
+WorkingDirectory=/www/sites/%i/current
+Environment=PATH=/opt/node/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=/www/sites/%i/site.env
+EnvironmentFile=-/etc/www/env/%i.env
+EnvironmentFile=-/www/sites/%i/.env
+ExecStart=/www/sites/%i/current/deploy/start
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/www/sites/%i
+
+[Install]
+WantedBy=multi-user.target

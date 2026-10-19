@@ -1,0 +1,12 @@
+[Unit]
+Description=roll %i back to its previous build
+
+[Service]
+Type=oneshot
+User=www-%i
+EnvironmentFile=/www/sites/%i/site.env
+ExecStart=/opt/gittybops/bin/rollback
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/www/sites/%i

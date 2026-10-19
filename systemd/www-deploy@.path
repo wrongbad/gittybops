@@ -1,0 +1,6 @@
+[Path]
+PathModified=/run/www-hook/%i
+Unit=www-deploy@%i.service
+
+[Install]
+WantedBy=paths.target

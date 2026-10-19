@@ -1,0 +1,7 @@
+# A deploy (or rollback) touches /www/sites/<site>/restart once current points at the new build.
+[Path]
+PathChanged=/www/sites/%i/restart
+Unit=www-restart@%i.service
+
+[Install]
+WantedBy=paths.target

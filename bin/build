@@ -1,0 +1,23 @@
+#!/bin/sh
+# ExecStart of www-deploy@<site>, as the site's user: build the branch tip in whichever slot (a or b) is not
+# live, swap the current symlink to it, and touch restart, which www-restart@<site>.path turns into a server
+# restart. Repeats until the branch stops moving, so a push that lands mid-build is deployed too. A failed
+# build never touches current. Each slot keeps its own warm caches.
+set -eu
+dir=/www/sites/$SITE
+while :; do
+	[ "$(readlink "$dir/current" 2>/dev/null)" = a ] && slot=b || slot=a
+	[ -d "$dir/$slot/.git" ] || git clone -q --depth 1 --branch "$BRANCH" "$REPO" "$dir/$slot"
+	cd "$dir/$slot"
+	git remote set-url origin "$REPO"
+	git fetch -q --depth 1 origin "$BRANCH"
+	want=$(git rev-parse FETCH_HEAD)
+	[ "$want" != "$(cat "$dir/deployed" 2>/dev/null)" ] || exit 0
+	git reset -q --hard "$want"
+	echo "building $SITE at $want in $slot"
+	if [ -x deploy/build ]; then deploy/build; fi
+	ln -sfn "$slot" "$dir/current.new"
+	mv -T "$dir/current.new" "$dir/current"
+	echo "$want" > "$dir/deployed"
+	date +%s > "$dir/restart"
+done
