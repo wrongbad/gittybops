@@ -1,0 +1,7 @@
+# `www backup <site>` touches /run/www/backup-<site>.
+[Path]
+PathModified=/run/www/backup-%i
+Unit=www-backup@%i.service
+
+[Install]
+WantedBy=paths.target

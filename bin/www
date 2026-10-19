@@ -1,0 +1,48 @@
+#!/bin/sh
+# Day-to-day commands for members of group www, no sudo. An action touches /run/www/<action>-<site>, which a
+# path unit turns into a run of www-<action>@<site>; this then shows that run's log until it ends.
+#   www deploy|backup|rollback|restart <site>
+#   www status
+#   www log <site>
+set -eu
+usage() { echo "usage: www deploy|backup|rollback|restart <site> | status | log <site>" >&2; exit 2; }
+cmd=${1:-} site=${2:-}
+case $cmd in
+	status)
+		systemctl list-units --all --no-pager 'www*'
+		for f in /etc/www/site/*.env; do
+			s=$(basename "$f" .env)
+			echo "$s: $(cat "/www/sites/$s/deployed" 2>/dev/null || echo 'never built') in $(readlink "/www/sites/$s/current" 2>/dev/null || echo -)"
+		done
+		exit ;;
+	log) [ -n "$site" ] || usage; exec journalctl -f -u "www*@$site.*" ;;
+	deploy|backup|rollback|restart) [ -n "$site" ] || usage ;;
+	*) usage ;;
+esac
+[ -f "/etc/www/site/$site.env" ] || { echo "no site $site in sites.conf" >&2; exit 1; }
+[ -w /run/www ] || { echo "you're not in group www (yet: log in again after install.sh adds you)" >&2; exit 1; }
+
+unit=www-$cmd@$site.service
+prop() { systemctl show -p "$1" --value "$unit"; }
+run=$(prop InvocationID) checked=$(prop ConditionTimestampMonotonic)
+touch "/run/www/$cmd-$site"
+i=0
+while [ "$(prop InvocationID)" = "$run" ]; do
+	if [ "$(prop ConditionTimestampMonotonic)" != "$checked" ] && [ "$(prop ConditionResult)" = no ]; then
+		script=$cmd; [ "$cmd" != restart ] || script=start
+		echo "$unit skipped: the current build of $site has no deploy/$script" >&2
+		exit 1
+	fi
+	i=$((i + 1))
+	[ "$i" -le 50 ] || { echo "$unit did not start, see: systemctl status $unit" >&2; exit 1; }
+	sleep 0.2
+done
+journalctl -f -o cat "_SYSTEMD_INVOCATION_ID=$(prop InvocationID)" &
+log=$!
+while :; do
+	case $(prop ActiveState) in activating|active|deactivating|reloading) sleep 1 ;; *) break ;; esac
+done
+sleep 1 && kill "$log" 2>/dev/null || true
+[ "$cmd" != restart ] || systemctl status --no-pager -n 10 "www@$site.service" || true
+result=$(prop Result)
+[ "$result" = success ] || { echo "$unit: $result" >&2; exit 1; }

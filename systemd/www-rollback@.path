@@ -1,0 +1,7 @@
+# `www rollback <site>` touches /run/www/rollback-<site>.
+[Path]
+PathModified=/run/www/rollback-%i
+Unit=www-rollback@%i.service
+
+[Install]
+WantedBy=paths.target

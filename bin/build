@@ -5,6 +5,16 @@
 # build never touches current. Each slot keeps its own warm caches.
 set -eu
 dir=/www/sites/$SITE
+[ -d "$DATA_DIR" ] || mkdir -m 700 "$DATA_DIR"
+# Private repos (ssh URLs): the site's own deploy key, made here on its first deploy (add deploy-key.pub to the
+# repo, read-only), and GitHub's published host key, so the clone doesn't prompt.
+case $REPO in git@*|ssh://*)
+	[ -d "$dir/.ssh" ] || mkdir -m 700 "$dir/.ssh"
+	[ -f "$dir/.ssh/id_ed25519" ] || ssh-keygen -q -t ed25519 -N '' -C "www-$SITE@$(uname -n)" -f "$dir/.ssh/id_ed25519"
+	cp "$dir/.ssh/id_ed25519.pub" "$dir/deploy-key.pub"
+	gh_key='github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'
+	grep -qxF "$gh_key" "$dir/.ssh/known_hosts" 2>/dev/null || echo "$gh_key" >> "$dir/.ssh/known_hosts" ;;
+esac
 while :; do
 	[ "$(readlink "$dir/current" 2>/dev/null)" = a ] && slot=b || slot=a
 	[ -d "$dir/$slot/.git" ] || git clone -q --depth 1 --branch "$BRANCH" "$REPO" "$dir/$slot"

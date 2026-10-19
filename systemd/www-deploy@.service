@@ -5,7 +5,7 @@ Description=deploy %i
 Type=oneshot
 User=www-%i
 Environment=PATH=/opt/node/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin RUSTUP_HOME=/opt/rustup
-EnvironmentFile=/www/sites/%i/site.env
+EnvironmentFile=/etc/www/site/%i.env
 ExecStart=/opt/gittybops/bin/build
 Nice=10
 TimeoutStartSec=1h

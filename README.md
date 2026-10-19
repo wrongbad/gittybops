@@ -2,8 +2,9 @@
 
 Push-to-deploy for one Linux box: a push to a site's branch rebuilds that site within seconds, with atomic
 a/b swaps, warm caches, nightly backups and Caddy in front. Everything is plain shell, systemd units and a
-small webhook listener. Root is needed only to run `install.sh`; deploys, restarts, rollbacks and
-day-to-day operations run without it.
+small webhook listener. Root is needed only for the parts of `install.sh` that change the system (packages,
+users, units, files under /opt and /etc); deploys, restarts, rollbacks and day-to-day operations run
+without it.
 
 Your box is described by a **config repo** that you own, with gittybops as a submodule:
 
@@ -21,23 +22,30 @@ See `example/` for a starting point.
 
 ## New box
 Debian, Ubuntu or Amazon Linux 2023 (anything with systemd 247+ and dnf or apt), x86_64 or arm64, ports
-80 and 443 open. Running the www units without sudo needs polkit 0.106+ (Debian 12, Ubuntu 24.04, AL2023);
-on older systems install.sh skips that and those commands need sudo.
+80 and 443 open.
 ```sh
-sudo install -d -o "$USER" /www/box     # the one sudo besides install.sh
+sudo install -d -o "$USER" /www/box
 git clone --recurse-submodules <your config repo> /www/box
-sudo /www/box/gittybops/install.sh
+/www/box/gittybops/install.sh
 ```
+Run `install.sh` as yourself, not with sudo. It does what it can as you and runs each step that needs root
+through sudo, printing it first (`# useradd ...`), and only when that step has something to change: an
+update that changes nothing asks for no password. `DRY_RUN=1 gittybops/install.sh` prints the root steps it
+would take and does nothing. Downloads (Node, rustup, Caddy) are fetched, checksummed and unpacked as you;
+root only copies the result into place, owned by root.
+
 `/www/box` stays yours; `install.sh` copies what root runs out of it (the engine to `/opt/gittybops`,
-`sites.conf`, `Caddyfile` and `env/` to `/etc/www`), so nothing you or a push change there runs as root
-until you run `install.sh` again. Log in again afterwards to pick up the `www` and `systemd-journal` groups.
+`sites.conf`, `Caddyfile`, `env/` and one env file per site to `/etc/www`), so nothing you or a push change
+there runs until you run `install.sh` again. Log in again afterwards to pick up the `www` and
+`systemd-journal` groups.
 
 Then:
 - Point DNS at the box (Caddy gets certificates on its own once it does).
 - On each repo in `sites.conf`: Settings > Webhooks > Add webhook, payload URL `https://<domain>/_hook`
   (wherever your Caddyfile imports `/opt/gittybops/caddy/hook.caddy`), content type `application/json`,
   secret from `cat /etc/www/hook-secret`, "Just the push event". Private repos (ssh URLs) also need the
-  deploy key `install.sh` printed.
+  read-only deploy key the site makes on its first deploy: `install.sh` prints it, or
+  `cat /www/sites/<name>/deploy-key.pub`; then `www deploy <name>`.
 
 ## A site's side of the contract
 - `deploy/build` (executable, optional): run in the checkout on every push, as the site's user; build in place.
@@ -54,23 +62,25 @@ another branch and another name gives a separate staging copy.
 Edit the config repo, push, then on the box:
 ```sh
 cd /www/box && git pull && git submodule update --init
-sudo gittybops/install.sh
+gittybops/install.sh
 ```
-Read the diff first (`git diff HEAD@{1}`, and the submodule's): `install.sh` runs as root. Files Caddy
-serves straight out of `/www/box` go live with the `git pull` alone.
+Read the diff first (`git diff HEAD@{1}`, and the submodule's), or `DRY_RUN=1` it: `install.sh` acts as
+root. A site whose env changed has its running server restarted. Files Caddy serves straight out of
+`/www/box` go live with the `git pull` alone.
 
 ## Day to day (no sudo; members of group `www`)
 ```sh
-journalctl -u 'www-deploy@*' -f         # deploys
-journalctl -u 'www@*' -f                # site servers
-journalctl -u 'www-backup@*'            # nightly backups
-systemctl list-units 'www*'
-systemctl start www-deploy@<name>       # redeploy now
-systemctl start www-backup@<name>       # back up now
-systemctl start www-rollback@<name>     # previous build (again: roll forward)
-systemctl restart www@<name>
-cat /www/sites/<name>/deployed          # commit of the last successful build
+www deploy <name>                       # redeploy now, and follow it
+www backup <name>                       # back up now
+www rollback <name>                     # previous build (again: roll forward)
+www restart <name>                      # restart the server
+www status                              # units, and each site's deployed commit and slot
+www log <name>                          # follow everything for one site
+journalctl -u 'www-deploy@*' -f         # all deploys
 ```
+`www <action> <site>` touches `/run/www/<action>-<site>` (group `www` only), a path unit runs
+`www-<action>@<site>`, and `www` follows that run's log and exits with its result. Stopping a site is the
+one thing left to `sudo systemctl stop www@<name>`.
 A rollback lasts until the next deploy, which also reuses the rolled-back-from slot.
 
 ## How it works
@@ -83,12 +93,14 @@ A rollback lasts until the next deploy, which also reuses the rolled-back-from s
 - `www-restart@<site>.path` sees that and runs `www-restart@<site>`: `systemctl restart www@<site>`, the only
   root step of a deploy, which takes no input.
 - `www-deploy@<site>.timer` runs the same deploy 30 s after boot and every 10 min, for missed webhooks.
+- The deploy also makes a private site's deploy key (`~/.ssh`, copied to `/www/sites/<site>/deploy-key.pub`)
+  and pins GitHub's host key in the site's own `known_hosts`.
 - Shared toolchains: Node 24 in `/opt/node` (always), others from `toolchains/` as `box.conf` lists them
   (`rust`: stable with the wasm32 target, in `/opt/rustup` + `/opt/cargo`), Caddy in `/usr/local/bin`. Each
   site's caches (`~/.npm`, `~/.cargo`, its `node_modules` and `target/`) live in `/www/sites/<site>` and stay
   warm between deploys (each slot's are one build behind).
-- `polkit/gittybops.rules` lets group `www` start, stop and restart `www@`, `www-deploy@`, `www-backup@` and
-  `www-rollback@` units, nothing else.
+- `/run/www` (mode 1770, group `www`, from `tmpfiles/`) holds the triggers for `www`; path units turn
+  `deploy-`, `backup-`, `rollback-` and `restart-<site>` into runs of the matching unit, nothing else.
 
 Whoever can push to a branch in `sites.conf` can run code on the box as that site's user, nothing more.
 Whoever can push to the config repo or this one can run code as root, but only once you pull and run
