@@ -1,6 +1,6 @@
-# `www backup <site>` touches /run/www/backup-<site>.
+# `www backup <site>` touches /www/trigger/backup-<site>.
 [Path]
-PathModified=/run/www/backup-%i
+PathModified=/www/trigger/backup-%i
 Unit=www-backup@%i.service
 
 [Install]

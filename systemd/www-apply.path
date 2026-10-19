@@ -1,0 +1,7 @@
+# install.sh touches /www/trigger/apply after it puts a new engine or config in /www/live.
+[Path]
+PathModified=/www/trigger/apply
+Unit=www-apply.service
+
+[Install]
+WantedBy=paths.target

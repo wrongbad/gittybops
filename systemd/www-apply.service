@@ -1,0 +1,8 @@
+# Root, but takes no input: start the webhook listener and Caddy on the new /www/live.
+[Unit]
+Description=pick up a new engine and config
+
+[Service]
+Type=oneshot
+ExecStart=systemctl try-restart www-hook.service
+ExecStart=systemctl try-reload-or-restart caddy.service

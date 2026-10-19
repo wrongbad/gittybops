@@ -8,11 +8,8 @@ ConditionFileIsExecutable=/www/sites/%i/current/deploy/start
 [Service]
 User=www-%i
 WorkingDirectory=/www/sites/%i/current
-Environment=PATH=/opt/node/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-EnvironmentFile=/etc/www/site/%i.env
-EnvironmentFile=-/etc/www/env/%i.env
-EnvironmentFile=-/www/sites/%i/.env
-ExecStart=/www/sites/%i/current/deploy/start
+Environment=PATH=/www/tools/node/bin:/www/tools/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin RUSTUP_HOME=/www/tools/rustup
+ExecStart=/www/live/engine/bin/site-env %i /www/sites/%i/current/deploy/start
 Restart=always
 RestartSec=2
 NoNewPrivileges=yes

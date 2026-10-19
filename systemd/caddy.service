@@ -6,10 +6,14 @@ Wants=network-online.target
 [Service]
 User=caddy
 StateDirectory=caddy
-Environment=XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy
+# Caddy's admin API on a socket only caddy can reach, not localhost:2019, where any local user (any site)
+# could rewrite its config and so get at its TLS keys.
+RuntimeDirectory=caddy
+RuntimeDirectoryMode=0700
+Environment=XDG_DATA_HOME=/var/lib/caddy XDG_CONFIG_HOME=/var/lib/caddy CADDY_ADMIN=unix//run/caddy/admin.sock
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-ExecStart=/usr/local/bin/caddy run --config /etc/www/Caddyfile --adapter caddyfile
-ExecReload=/usr/local/bin/caddy reload --config /etc/www/Caddyfile --adapter caddyfile --force
+ExecStart=/www/tools/caddy/caddy run --config /www/live/Caddyfile --adapter caddyfile
+ExecReload=/www/tools/caddy/caddy reload --config /www/live/Caddyfile --adapter caddyfile --force
 Restart=always
 
 [Install]

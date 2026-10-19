@@ -11,7 +11,7 @@ const runDir = process.env.RUNTIME_DIRECTORY
 
 // "owner/repo refs/heads/branch" -> site names (one repo can back several sites, e.g. prod and staging)
 const sites = new Map()
-for (const line of readFileSync('/etc/www/sites.conf', 'utf8').split('\n')) {
+for (const line of readFileSync('/www/live/sites.conf', 'utf8').split('\n')) {
   const [name, repo, branch] = line.replace(/#.*/, '').trim().split(/\s+/)
   const m = branch && repo.match(/github\.com[:/](.+?)(\.git)?$/)
   if (!m) continue

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Day-to-day commands for members of group www, no sudo. An action touches /run/www/<action>-<site>, which a
-# path unit turns into a run of www-<action>@<site>; this then shows that run's log until it ends.
+# Day-to-day commands for members of group www, no sudo. An action touches /www/trigger/<action>-<site>, which
+# a path unit turns into a run of www-<action>@<site>; this then shows that run's log until it ends.
 #   www deploy|backup|rollback|restart <site>
 #   www status
 #   www log <site>
@@ -10,8 +10,7 @@ cmd=${1:-} site=${2:-}
 case $cmd in
 	status)
 		systemctl list-units --all --no-pager 'www*'
-		for f in /etc/www/site/*.env; do
-			s=$(basename "$f" .env)
+		sed 's/#.*//' /www/live/sites.conf | awk 'NF {print $1}' | while read -r s; do
 			echo "$s: $(cat "/www/sites/$s/deployed" 2>/dev/null || echo 'never built') in $(readlink "/www/sites/$s/current" 2>/dev/null || echo -)"
 		done
 		exit ;;
@@ -19,13 +18,14 @@ case $cmd in
 	deploy|backup|rollback|restart) [ -n "$site" ] || usage ;;
 	*) usage ;;
 esac
-[ -f "/etc/www/site/$site.env" ] || { echo "no site $site in sites.conf" >&2; exit 1; }
-[ -w /run/www ] || { echo "you're not in group www (yet: log in again after install.sh adds you)" >&2; exit 1; }
+sed 's/#.*//' /www/live/sites.conf | awk -v n="$site" '$1 == n {f=1} END {exit !f}' \
+	|| { echo "no site $site in /www/live/sites.conf" >&2; exit 1; }
+[ -w /www/trigger ] || { echo "you're not in group www (yet: log in again after install.sh adds you)" >&2; exit 1; }
 
 unit=www-$cmd@$site.service
 prop() { systemctl show -p "$1" --value "$unit"; }
 run=$(prop InvocationID) checked=$(prop ConditionTimestampMonotonic)
-touch "/run/www/$cmd-$site"
+touch "/www/trigger/$cmd-$site"
 i=0
 while [ "$(prop InvocationID)" = "$run" ]; do
 	if [ "$(prop ConditionTimestampMonotonic)" != "$checked" ] && [ "$(prop ConditionResult)" = no ]; then

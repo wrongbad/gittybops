@@ -1,6 +1,6 @@
 # GitHub push webhooks -> gittybops' listener (hook/hook.mjs). In your Caddyfile, inside the site block
 # that should receive them:
-#   import /opt/gittybops/caddy/hook.caddy
+#   import /www/live/engine/caddy/hook.caddy
 handle /_hook {
 	reverse_proxy 127.0.0.1:9000
 }

@@ -4,9 +4,8 @@ Description=deploy %i
 [Service]
 Type=oneshot
 User=www-%i
-Environment=PATH=/opt/node/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin RUSTUP_HOME=/opt/rustup
-EnvironmentFile=/etc/www/site/%i.env
-ExecStart=/opt/gittybops/bin/build
+Environment=PATH=/www/tools/node/bin:/www/tools/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin RUSTUP_HOME=/www/tools/rustup
+ExecStart=/www/live/engine/bin/site-env %i /www/live/engine/bin/build
 Nice=10
 TimeoutStartSec=1h
 NoNewPrivileges=yes

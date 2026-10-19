@@ -1,8 +1,8 @@
-# A deploy or rollback touches /www/sites/<site>/restart once current points at the new build;
-# `www restart <site>` touches /run/www/restart-<site>.
+# A deploy or rollback touches /www/sites/<site>/restart once current points at the new build; `www restart
+# <site>` and install.sh (for new config) touch /www/trigger/restart-<site>.
 [Path]
 PathChanged=/www/sites/%i/restart
-PathModified=/run/www/restart-%i
+PathModified=/www/trigger/restart-%i
 Unit=www-restart@%i.service
 
 [Install]

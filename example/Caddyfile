@@ -5,7 +5,7 @@
 
 example.com {
 	encode zstd gzip
-	import /opt/gittybops/caddy/hook.caddy
+	import /www/live/engine/caddy/hook.caddy
 
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8787
