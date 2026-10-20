@@ -1,4 +1,4 @@
-# Restart the server after a deploy or rollback (they touch /www/sites/<site>/restart), on `www restart
+# Restart the server after a deploy (it touches /www/sites/<site>/restart), on `www restart
 # <site>`, or when setup changes its config (it touches the trigger).
 [Path]
 PathChanged=/www/sites/%i/restart

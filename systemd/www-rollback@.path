@@ -1,7 +1,0 @@
-# On `www rollback <site>`.
-[Path]
-PathModified=/www/gittybops/trigger/rollback-%i
-Unit=www-rollback@%i.service
-
-[Install]
-WantedBy=paths.target

@@ -34,10 +34,10 @@ repos (ssh URLs) need the deploy key each site makes on its first deploy:
 ## Day to day (no sudo)
 ```sh
 www status                                   # each site's deployed commit
-www deploy|backup|rollback|restart <name>    # now, following the log
+www deploy|backup|restart <name>    # now, following the log
 www log <name>                               # follow everything about a site
 ```
-`www` is `/www/gittybops/bin/www`. A rollback swaps back to the other slot, until the next deploy.
+`www` is `/www/gittybops/bin/www`. To roll back, `git revert` the bad commit and push.
 
 ## How it works
 - `www-hook` checks GitHub's signature and touches `/run/www-hook/<name>` for each site on that branch.

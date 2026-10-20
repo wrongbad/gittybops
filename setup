@@ -16,7 +16,7 @@ trap 'rm -rf "$tmp"' EXIT
 # All of a site's units, for enabling and disabling them together.
 units() {
 	echo "www@$1 www-deploy@$1.path www-deploy@$1.timer www-restart@$1.path" \
-		"www-backup@$1.path www-backup@$1.timer www-rollback@$1.path"
+		"www-backup@$1.path www-backup@$1.timer"
 }
 
 # Once: /www/gittybops (yours), /www/sites, the webhook secret, and you reading the logs.
@@ -30,7 +30,7 @@ id -nG | grep -qw systemd-journal || root usermod -aG systemd-journal "$USER"
 
 # The scripts the units run. The webhook listener restarts itself when its own file changes.
 mkdir -p /www/gittybops/bin /www/gittybops/hook /www/gittybops/site /www/gittybops/env /www/gittybops/trigger
-for f in bin/build bin/rollback bin/site-env bin/www hook/hook.mjs; do
+for f in bin/build bin/site-env bin/www hook/hook.mjs; do
 	put "$here/$f" "/www/gittybops/$f"
 done
 

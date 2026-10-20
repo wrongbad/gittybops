@@ -1,7 +1,7 @@
 #!/bin/sh
 # Day-to-day commands, no sudo:
 #   www status                                   each site's deployed commit
-#   www deploy|backup|rollback|restart SITE      do it now, and follow the log (ctrl-c stops following)
+#   www deploy|backup|restart SITE      do it now, and follow the log (ctrl-c stops following)
 #   www log SITE                                 follow everything about SITE
 set -eu
 cmd=${1:-}
@@ -13,11 +13,11 @@ case $cmd in
 		done ;;
 	log)
 		exec journalctl -f -u "www*@$site.*" ;;
-	deploy|backup|rollback|restart)
+	deploy|backup|restart)
 		[ -e "/www/gittybops/site/$site" ] || { echo "no site '$site'" >&2; exit 1; }
 		touch "/www/gittybops/trigger/$cmd-$site"
 		exec journalctl -f -n 0 -u "www-$cmd@$site" -u "www@$site" ;;
 	*)
-		echo "usage: www status | www deploy|backup|rollback|restart SITE | www log SITE" >&2
+		echo "usage: www status | www deploy|backup|restart SITE | www log SITE" >&2
 		exit 2 ;;
 esac
